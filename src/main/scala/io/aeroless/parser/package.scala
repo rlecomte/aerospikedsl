@@ -1,5 +1,7 @@
 package io.aeroless
 
+import scala.util.Try
+
 import cats.Applicative
 import io.aeroless.parser.algebra.AsAlgebra
 
@@ -108,5 +110,11 @@ package object parser {
 
       override def apply[F[_]](implicit ev: AsAlgebra[F]): F[B] = ev.ap(ff.apply[F])(fa.apply[F])
     }
+  }
+
+  implicit class DslOps[A](dsl: Dsl[A]) {
+    def runEither(value: AsValue): Either[Throwable, A] = Try {
+      yolo.runUnsafe(dsl)(value)
+    }.toEither
   }
 }

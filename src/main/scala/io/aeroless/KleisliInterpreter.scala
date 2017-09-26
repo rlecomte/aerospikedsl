@@ -7,8 +7,7 @@ import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.connection.AerospikeIO
-import io.aeroless.connection.AerospikeIO.{Bind, FMap, Fail, GetAll, Join, Pure, Put, Query, ScanAll}
+import io.aeroless.AerospikeIO.{Bind, FMap, Fail, GetAll, Join, Pure, Put, Query, ScanAll}
 
 object KleisliInterpreter { module =>
 

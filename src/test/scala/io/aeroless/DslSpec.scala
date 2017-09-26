@@ -27,14 +27,14 @@ class DslSpec extends FlatSpec with Matchers {
       }
     ).tupled
 
-    program.runUnsafe(aerospikeValue) shouldBe Right(("Romain", 27, "Montpellier"))
+    program.runEither(aerospikeValue) shouldBe Right(("Romain", 27, "Montpellier"))
   }
 
   case class Details(city: String, company: String)
 
   case class Person(name: String, age: Int, details: Details)
   "Value" should "be decode" in {
-    val tested = Decoder[Person].dsl.runUnsafe(aerospikeValue)
+    val tested = Decoder[Person].dsl.runEither(aerospikeValue)
     info(tested.toString)
   }
 }
