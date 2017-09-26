@@ -16,6 +16,7 @@ class Fs2Spec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
   case class TestValue(id: String)
   "Value" should "be read" in {
+    import cats.implicits._
     import connection._
     //dockerContainers.forall(_.isReady().futureValue) shouldBe true
 
@@ -25,17 +26,14 @@ class Fs2Spec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
     //getAll(key).map(v => println(s"RESULT!!!! $v")).run.unsafeRunSync()
 
-    val key1 = new Key("test", "set", "test1")
-    val key2 = new Key("test", "set", "test2")
-    val key3 = new Key("test", "set", "test3")
-    val key4 = new Key("test", "set", "test4")
+    val kd = keydomain("test", "set")
 
     val io = for {
-      _ <- put(key1, TestValue("value1"))
-      //_ <- put(key2, new Bin("id", "value2"))
-      //_ <- put(key3, new Bin("id", "value3"))
-      //_ <- put(key4, new Bin("id", "value4"))
-      record <- query(QueryStatement("test", "set").readBins("id")).decodeOrFail[TestValue]
+      _ <- put(kd("test1"), TestValue("value1"))
+      _ <- put(kd(1L), TestValue("value2"))
+      _ <- put(kd(1), TestValue("value3"))
+      _ <- put(kd("test3"), TestValue("value4"))
+      record <- query[TestValue](QueryStatement("test", "set").readBins("id"))
       //record <- scanAll("test", "set", "id" :: Nil).decodeOrFail[TestValue]
     } yield record
 

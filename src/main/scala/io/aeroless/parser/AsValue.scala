@@ -1,9 +1,10 @@
-package io.aeroless
+package io.aeroless.parser
 
-import cats.Eval
 import scala.collection.JavaConverters._
 
 import com.aerospike.client.Record
+
+import cats.Eval
 
 sealed trait AsValue
 

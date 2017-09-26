@@ -4,6 +4,7 @@ import com.aerospike.client.{Bin, Key, Record}
 
 import cats.MonadError
 import io.aeroless.connection.AerospikeIO.{Bind, FMap, Join}
+import io.aeroless.parser.{AsValue, Decoder, Encoder}
 
 object connection {
 
@@ -66,11 +67,23 @@ object connection {
 
   def pure[A](x: A): AerospikeIO[A] = Pure(x)
 
-  //def put(key: Key, bins: Bin*): AerospikeIO[Key] = Put(key, bins)
-
   def put[T](key: Key, obj: T)(implicit encoder: Encoder[T]): AerospikeIO[Key] = Put(key, encoder.encode(obj))
 
-  def query[T](statement: QueryStatement): AerospikeIO[Vector[(Key, Record)]] = Query(statement)
+  def query[T](statement: QueryStatement)(implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
+    Query(statement).flatMap[Vector[(Key, T)]] { vector =>
+
+      import cats.instances.either._
+      import cats.instances.vector._
+      import cats.syntax.traverse._
+
+      vector.traverse[Either[Throwable, ?], (Key, T)] { t =>
+        decoder.dsl.runUnsafe(AsValue.fromRecord(t._2)).map(r => (t._1, r))
+      } match {
+        case Right(vec) => AerospikeIO.pure(vec)
+        case Left(t) => AerospikeIO.failed(t)
+      }
+    }
+  }
 
   def scanAll(namespace: String, set: String, binNames: List[String]): AerospikeIO[Vector[(Key, Record)]] = ScanAll(namespace, set, binNames)
 

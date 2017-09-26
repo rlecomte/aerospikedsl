@@ -1,8 +1,6 @@
-package io.aeroless
+package io.aeroless.parser
 
 import scala.collection.generic.CanBuildFrom
-
-import io.aeroless.parser.Dsl
 
 case class Decoder[A](dsl: Dsl[A]) {
 
@@ -13,8 +11,6 @@ case class Decoder[A](dsl: Dsl[A]) {
 }
 
 object Decoder {
-
-  import parser._
 
   implicit val decodeString: Decoder[String] = Decoder(readString)
 

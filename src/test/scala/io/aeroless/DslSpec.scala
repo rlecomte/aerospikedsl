@@ -2,6 +2,8 @@ package io.aeroless
 
 import org.scalatest.{FlatSpec, Matchers}
 
+import io.aeroless.parser.{AsValue, Decoder}
+
 class DslSpec extends FlatSpec with Matchers {
 
   val aerospikeValue = AsValue.obj(

@@ -1,8 +1,8 @@
-package io.aeroless
+package io.aeroless.parser
 
-import com.aerospike.client.{Bin, Value}
 import com.aerospike.client.Value._
 import com.aerospike.client.command.ParticleType
+import com.aerospike.client.{Bin, Value}
 
 trait Encoder[A] {
   self =>
@@ -14,10 +14,11 @@ trait Encoder[A] {
 
 object Encoder {
 
+  import scala.collection.JavaConverters._
+
   import shapeless._
   import shapeless.labelled._
   import shapeless.ops.hlist.IsHCons
-  import scala.collection.JavaConverters._
 
   trait InternalEncoder[A] {
     def encode(a: A): Value
