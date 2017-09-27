@@ -26,7 +26,10 @@ object AerospikeIO {
 
     override def product[A, B](opA: AerospikeIO[A], opB: AerospikeIO[B]): AerospikeIO[(A, B)] = opA.product(opB)
 
-    override def tailRecM[A, B](a: A)(f: (A) => AerospikeIO[Either[A, B]]): AerospikeIO[B] = ??? //TODO
+    override def tailRecM[A, B](a: A)(f: (A) => AerospikeIO[Either[A, B]]): AerospikeIO[B] = f(a).flatMap {
+      case Left(a) => tailRecM(a)(f)
+      case Right(b) => Pure(b)
+    }
 
     override def raiseError[A](e: Throwable): AerospikeIO[A] = failed(e)
 

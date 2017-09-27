@@ -38,5 +38,7 @@ lazy val root = (project in file(".")).
 
     libraryDependencies ++= Seq(
       "com.whisk" %% "docker-testkit-scalatest" % "0.9.5" % "test",
-      "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.5" % "test")
+      "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.5" % "test"),
+
+    libraryDependencies += "org.typelevel" %% "discipline" % "0.7.3" % "test"
 )

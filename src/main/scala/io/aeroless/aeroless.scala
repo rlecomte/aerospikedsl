@@ -1,5 +1,7 @@
 package io
 
+import scala.concurrent.{ExecutionContext, Future}
+
 import com.aerospike.client.{Key, Record}
 
 import io.aeroless.parser.{AsValue, Decoder, Encoder}
@@ -64,4 +66,10 @@ package object aeroless {
     def getAll[A](keys: Array[Key]): AerospikeIO[Vector[(Key, Record)]] = GetAll(keys)
   }
 
+  implicit class AerospikeIOOps[A](io: AerospikeIO[A]) {
+
+    def runFuture(manager: AerospikeManager)(implicit ec: ExecutionContext): Future[A] = {
+      KleisliInterpreter.apply(ec)(io).apply(manager)
+    }
+  }
 }

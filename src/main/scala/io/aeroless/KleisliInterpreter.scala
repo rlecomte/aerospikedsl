@@ -1,6 +1,6 @@
 package io.aeroless
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 import com.aerospike.client.listener.{RecordSequenceListener, WriteListener}
 import com.aerospike.client.{AerospikeException, Key, Record}
@@ -11,7 +11,7 @@ import io.aeroless.AerospikeIO.{Bind, FMap, Fail, GetAll, Join, Pure, Put, Query
 
 object KleisliInterpreter { module =>
 
-  val apply: AerospikeIO ~> Kleisli[Future, AerospikeManager, ?] = λ[AerospikeIO ~> Kleisli[Future, AerospikeManager, ?]] {
+  def apply(implicit ec: ExecutionContext): AerospikeIO ~> Kleisli[Future, AerospikeManager, ?] = λ[AerospikeIO ~> Kleisli[Future, AerospikeManager, ?]] {
 
     case Put(key, bins) => kleisli[Key] { m =>
 
@@ -85,9 +85,8 @@ object KleisliInterpreter { module =>
     case Pure(x) => kleisli { _ => Future.successful(x) }
 
     case Join(opA, opB) => kleisli { m =>
-      implicit val ec = m.ec
-      val f1: Future[Any] = module.apply(opA)(m)
-      val f2: Future[Any] = module.apply(opB)(m)
+      val f1: Future[Any] = module.apply(ec)(opA)(m)
+      val f2: Future[Any] = module.apply(ec)(opB)(m)
       for {
         a <- f1
         b <- f2
@@ -95,14 +94,12 @@ object KleisliInterpreter { module =>
     }
 
     case Bind(x, f) => kleisli { m =>
-      implicit val ec = m.ec
-      module.apply(x)(m).flatMap(r => module.apply(f(r))(m))
+      module.apply(ec)(x)(m).flatMap(r => module.apply(ec)(f(r))(m))
 
     }
 
     case FMap(x, f) => kleisli { m =>
-      implicit val ec = m.ec
-      module.apply(x)(m).map(f)
+      module.apply(ec)(x)(m).map(f)
     }
 
     case Fail(t) => kleisli { _ => Future.failed(t) }
