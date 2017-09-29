@@ -53,16 +53,22 @@ package object aeroless {
       Prepend(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)
     }
 
+    def delete(key: Key): AerospikeIO[Key] = {
+      Delete(key)
+    }
+
     def add(key: Key, numBin: Seq[(String, Long)]): AerospikeIO[Key] = {
       Add(key, numBin.map { case (k, v) => new Bin(k, v) })
     }
 
-    def get[T](key: Key, bins: Seq[String])(implicit decoder: Decoder[T]): AerospikeIO[T] = {
-      Get(key, bins).flatMap { r =>
-        decoder.dsl.runEither(AsValue.fromRecord(r)) match {
-          case Right(v) => AerospikeIO.successful(v)
-          case Left(err) => AerospikeIO.failed(err)
-        }
+    def get[T](key: Key, bins: Seq[String])(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
+      Get(key, bins).flatMap {
+        case Some(r) =>
+          decoder.dsl.runEither(AsValue.fromRecord(r)) match {
+            case Right(v) => AerospikeIO.successful(Some(v))
+            case Left(err) => AerospikeIO.failed(err)
+          }
+        case None => AerospikeIO.successful(None)
       }
     }
 
