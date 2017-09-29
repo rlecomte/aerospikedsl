@@ -26,6 +26,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
   val kd = keydomain("test", "set")
   case class TestValue(id: String)
+  case class LongValue(value: Long)
 
   "Put / Append / Prepend / Get operation" should "work" in {
     val key = kd("AppendOps")
@@ -42,6 +43,19 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
     whenReady(io.runFuture(manager)) { r =>
       r should equal(TestValue("with_prefix_value_with_suffix"))
+    }
+  }
+
+  "Put / Add / Get operation" should "work" in {
+    val key = kd("AddOps")
+    val io = for {
+      _ <- put(key, LongValue(1L))
+      _ <- add(key, Seq(("value" -> 2L)))
+      v <- get[LongValue](key, Seq("value"))
+    } yield v
+
+    whenReady(io.runFuture(manager)) { r =>
+      r should equal(LongValue(3L))
     }
   }
 
