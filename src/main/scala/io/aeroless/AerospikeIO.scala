@@ -48,6 +48,8 @@ object AerospikeIO {
 
   final case class Append(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
 
+  final case class Prepend(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+
   final case class Get(key: Key, bins: Seq[String]) extends AerospikeIO[Record]
 
   final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, Record)]]

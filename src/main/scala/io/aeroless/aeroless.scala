@@ -49,6 +49,10 @@ package object aeroless {
       Append(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)
     }
 
+    def prepend(key: Key, bins: Map[String, String]): AerospikeIO[Key] = {
+      Prepend(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)
+    }
+
     def get[T](key: Key, bins: Seq[String])(implicit decoder: Decoder[T]): AerospikeIO[T] = {
       Get(key, bins).flatMap { r =>
         decoder.dsl.runEither(AsValue.fromRecord(r)) match {

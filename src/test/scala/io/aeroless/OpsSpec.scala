@@ -27,18 +27,21 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   val kd = keydomain("test", "set")
   case class TestValue(id: String)
 
-  "Put / Append / Get operation" should "work" in {
+  "Put / Append / Prepend / Get operation" should "work" in {
     val key = kd("AppendOps")
     val io = for {
       _ <- put(key, TestValue("value"))
       _ <- append(key, Map(
         "id" -> "_with_suffix"
       ))
+      _ <- prepend(key, Map(
+        "id" -> "with_prefix_"
+      ))
       v <- get[TestValue](key, Seq("id"))
     } yield v
 
     whenReady(io.runFuture(manager)) { r =>
-      r should equal(TestValue("value_with_suffix"))
+      r should equal(TestValue("with_prefix_value_with_suffix"))
     }
   }
 
