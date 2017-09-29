@@ -2,12 +2,12 @@ package io.aeroless
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-import com.aerospike.client.listener.{RecordSequenceListener, WriteListener}
+import com.aerospike.client.listener.{RecordListener, RecordSequenceListener, WriteListener}
 import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.AerospikeIO.{Bind, FMap, Fail, GetAll, Join, Pure, Put, Query, ScanAll}
+import io.aeroless.AerospikeIO.{Append, Bind, FMap, Fail, Get, GetAll, Join, Pure, Put, Query, ScanAll}
 
 object KleisliInterpreter { module =>
 
@@ -25,6 +25,31 @@ object KleisliInterpreter { module =>
       }, null, key, bins: _*)
       
       
+      promise.future
+    }
+
+    case Append(key, bins) => kleisli[Key] { m =>
+      val promise = Promise[Key]
+
+      m.client.append(m.eventLoops.next(), new WriteListener {
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+
+        override def onSuccess(key: Key): Unit = promise.success(key)
+
+      }, null, key, bins: _*)
+
+      promise.future
+    }
+
+    case Get(key, bins) => kleisli[Record] { m =>
+      val promise = Promise[Record]
+
+      m.client.get(m.eventLoops.next(), new RecordListener {
+        override def onFailure(exception: AerospikeException) = promise.failure(exception)
+
+        override def onSuccess(key: Key, record: Record) = promise.success(record)
+      }, null, key, bins: _*)
+
       promise.future
     }
 
@@ -77,7 +102,7 @@ object KleisliInterpreter { module =>
 
           override def onSuccess(): Unit = promise.success(results.result())
 
-        }, null, keys)
+        }, null, keys.toArray)
 
       promise.future
     }

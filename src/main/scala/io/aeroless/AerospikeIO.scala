@@ -3,16 +3,19 @@ package io.aeroless
 import com.aerospike.client.{Bin, Key, Record}
 
 import cats.MonadError
-import io.aeroless.AerospikeIO.{Bind, FMap, Join}
+import io.aeroless.AerospikeIO.{Bind, FMap, Fail, Join}
 
-sealed trait AerospikeIO[A] {
-  self =>
+abstract class AerospikeIO[A] { self =>
+  def map[B](f: A => B): AerospikeIO[B] = FMap(this, f)
 
-  def map[B](f: A => B): AerospikeIO[B] = FMap(self, f)
+  def flatMap[B](f: A => AerospikeIO[B]): AerospikeIO[B] = Bind(this, f)
 
-  def flatMap[B](f: A => AerospikeIO[B]): AerospikeIO[B] = Bind(self, f)
+  def product[B](opsB: AerospikeIO[B]): AerospikeIO[(A, B)] = Join(this, opsB)
 
-  def product[B](opsB: AerospikeIO[B]): AerospikeIO[(A, B)] = Join(self, opsB)
+  def recover(f: Throwable => AerospikeIO[A]): AerospikeIO[A] = self match {
+    case Fail(t) => f(t)
+    case _ => self
+  }
 }
 
 object AerospikeIO {
@@ -33,23 +36,25 @@ object AerospikeIO {
 
     override def raiseError[A](e: Throwable): AerospikeIO[A] = failed(e)
 
-    override def handleErrorWith[A](fa: AerospikeIO[A])(f: (Throwable) => AerospikeIO[A]): AerospikeIO[A] = fa match {
-      case Fail(t) => f(t)
-      case _ => fa
-    }
+    override def handleErrorWith[A](fa: AerospikeIO[A])(f: (Throwable) => AerospikeIO[A]): AerospikeIO[A] = fa.recover(f)
   }
 
-  def pure[A](x: A): AerospikeIO[A] = Pure(x)
+  def successful[A](x: A): AerospikeIO[A] = Pure(x)
 
   def failed[A](t: Throwable): AerospikeIO[A] = Fail(t)
 
+  //Basic
   final case class Put(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+
+  final case class Append(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+
+  final case class Get(key: Key, bins: Seq[String]) extends AerospikeIO[Record]
 
   final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, Record)]]
 
-  final case class ScanAll(namespace: String, set: String, binNames: List[String]) extends AerospikeIO[Vector[(Key, Record)]]
+  final case class ScanAll(namespace: String, set: String, binNames: Seq[String]) extends AerospikeIO[Vector[(Key, Record)]]
 
-  final case class GetAll[A](keys: Array[Key]) extends AerospikeIO[Vector[(Key, Record)]]
+  final case class GetAll[A](keys: Seq[Key]) extends AerospikeIO[Vector[(Key, Record)]]
 
   final case class Pure[A, B](x: A) extends AerospikeIO[A]
 
