@@ -72,6 +72,10 @@ package object aeroless {
       }
     }
 
+    def touch(key: Key): AerospikeIO[Key] = {
+      Touch(key)
+    }
+
     def query[T](statement: QueryStatement)(implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
       Query(statement).flatMap(decodeVector[T])
     }

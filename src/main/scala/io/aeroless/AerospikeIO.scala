@@ -56,6 +56,8 @@ object AerospikeIO {
 
   final case class Delete(key: Key) extends AerospikeIO[Key]
 
+  final case class Touch(key: Key) extends AerospikeIO[Key]
+
   final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, Record)]]
 
   final case class ScanAll(namespace: String, set: String, binNames: Seq[String]) extends AerospikeIO[Vector[(Key, Record)]]

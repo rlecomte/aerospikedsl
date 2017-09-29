@@ -7,7 +7,7 @@ import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.AerospikeIO.{Add, Append, Bind, Delete, FMap, Fail, Get, GetAll, Join, Prepend, Pure, Put, Query, ScanAll}
+import io.aeroless.AerospikeIO.{Add, Append, Bind, Delete, FMap, Fail, Get, GetAll, Join, Prepend, Pure, Put, Query, ScanAll, Touch}
 
 object KleisliInterpreter { module =>
 
@@ -74,6 +74,19 @@ object KleisliInterpreter { module =>
         override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
         override def onSuccess(key: Key, existed: Boolean): Unit = promise.success(key)
+
+      }, null, key)
+
+      promise.future
+    }
+
+    case Touch(key) => kleisli[Key] { m =>
+      val promise = Promise[Key]
+
+      m.client.touch(m.eventLoops.next(), new WriteListener {
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+
+        override def onSuccess(key: Key): Unit = promise.success(key)
 
       }, null, key)
 

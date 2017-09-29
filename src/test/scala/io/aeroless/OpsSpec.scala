@@ -72,6 +72,18 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     }
   }
 
+  "Touch operation" should "work" in {
+    val key = kd("TouchOps")
+    val io = for {
+      _ <- put(key, TestValue("value"))
+      _ <- touch(key)
+    } yield ()
+
+    whenReady(io.runFuture(manager)) { _ =>
+      ()
+    }
+  }
+
   "Query statement operation" should "work" in {
     val io = for {
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
