@@ -84,6 +84,19 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     }
   }
 
+  "Exists operation" should "work" in {
+    val key = kd("TouchOps")
+    val io = for {
+      _ <- put(key, TestValue("value"))
+      existsKey <- exists(key)
+      notExistsKey <- exists(kd("notexists"))
+    } yield (existsKey, notExistsKey)
+
+    whenReady(io.runFuture(manager)) { r =>
+      r should equal((true, false))
+    }
+  }
+
   "Query statement operation" should "work" in {
     val io = for {
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
