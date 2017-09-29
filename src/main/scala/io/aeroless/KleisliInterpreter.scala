@@ -22,7 +22,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
-      }, null, key, bins: _*)
+      }, m.writePolicy.orNull, key, bins: _*)
       
       
       promise.future
@@ -36,7 +36,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
-      }, null, key, bins: _*)
+      }, m.writePolicy.orNull, key, bins: _*)
 
       promise.future
     }
@@ -49,7 +49,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
-      }, null, key, bins: _*)
+      }, m.writePolicy.orNull, key, bins: _*)
 
       promise.future
     }
@@ -62,7 +62,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
-      }, null, key, bins: _*)
+      }, m.writePolicy.orNull, key, bins: _*)
 
       promise.future
     }
@@ -75,7 +75,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key, existed: Boolean): Unit = promise.success(key)
 
-      }, null, key)
+      }, m.writePolicy.orNull, key)
 
       promise.future
     }
@@ -88,7 +88,7 @@ object KleisliInterpreter { module =>
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
-      }, null, key)
+      }, m.writePolicy.orNull, key)
 
       promise.future
     }
@@ -100,7 +100,7 @@ object KleisliInterpreter { module =>
         override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
         override def onSuccess(key: Key, exists: Boolean): Unit = promise.success(exists)
-      }, null, key)
+      }, m.batchPolicy.orNull, key)
 
       promise.future
     }
@@ -112,7 +112,7 @@ object KleisliInterpreter { module =>
         override def onFailure(exception: AerospikeException) = promise.failure(exception)
 
         override def onSuccess(key: Key, record: Record) = promise.success(Option(record))
-      }, null, key, bins: _*)
+      }, m.policy.orNull, key, bins: _*)
 
       promise.future
     }
@@ -130,7 +130,7 @@ object KleisliInterpreter { module =>
 
           override def onSuccess(): Unit = promise.success(results.result())
 
-        }, null, statement.toStatement)
+        }, m.queryPolicy.orNull, statement.toStatement)
 
       promise.future
     }
@@ -148,7 +148,7 @@ object KleisliInterpreter { module =>
 
           override def onSuccess(): Unit = promise.success(results.result())
 
-        }, null, ns, set, bins: _*)
+        }, m.scanPolicy.orNull, ns, set, bins: _*)
 
       promise.future
     }
@@ -166,7 +166,7 @@ object KleisliInterpreter { module =>
 
           override def onSuccess(): Unit = promise.success(results.result())
 
-        }, null, keys.toArray)
+        }, m.batchPolicy.orNull, keys.toArray)
 
       promise.future
     }
