@@ -1,5 +1,6 @@
 package io.aeroless
 
+import com.aerospike.client.query.IndexType
 import com.aerospike.client.{Bin, Key, Record}
 
 import cats.MonadError
@@ -68,6 +69,12 @@ object AerospikeIO {
 
   final case class GetAll[A](keys: Seq[Key]) extends AerospikeIO[Vector[(Key, Record)]]
 
+  //Index
+  final case class CreateIndex(namespace: String, set: String, binName: String, idxType: IndexType, index: Option[String]) extends AerospikeIO[String]
+
+  final case class DropIndex(namespace: String, set: String, index: String) extends AerospikeIO[Unit]
+
+  //Plumbing
   final case class Pure[A, B](x: A) extends AerospikeIO[A]
 
   final case class Join[A, B](opA: AerospikeIO[A], opB: AerospikeIO[B]) extends AerospikeIO[(A, B)]

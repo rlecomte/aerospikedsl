@@ -1,6 +1,7 @@
 package io.aeroless
 
 import com.aerospike.client.async.{AsyncClient, AsyncClientPolicy, EventLoops, NettyEventLoops}
+import com.aerospike.client.query.IndexType
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, GivenWhenThen, Matchers}
 
@@ -160,6 +161,17 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
         TestValue("getall1"),
         TestValue("getall2")
       )
+    }
+  }
+
+  "Create / Drop index operation" should "work" in {
+    val io = for {
+      _ <- createIndex("test", "set", "id", IndexType.STRING)
+      _ <- dropIndex("test", "set", "test_set_id")
+    } yield ()
+
+    whenReady(io.runFuture(manager)) { _ =>
+      ()
     }
   }
 }

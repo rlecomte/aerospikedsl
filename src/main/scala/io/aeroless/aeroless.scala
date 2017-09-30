@@ -2,6 +2,7 @@ package io
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import com.aerospike.client.query.IndexType
 import com.aerospike.client.{Bin, Key, Record}
 
 import io.aeroless.parser.{AsValue, Decoder, Encoder}
@@ -95,6 +96,14 @@ package object aeroless {
 
     def getAll[T](keys: Seq[Key])(implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
       GetAll(keys).flatMap(decodeVector[T])
+    }
+
+    def createIndex(namespace: String, set: String, binName: String, idxType: IndexType, idx: Option[String] = None): AerospikeIO[String] = {
+      CreateIndex(namespace, set, binName, idxType, idx)
+    }
+
+    def dropIndex(namespace: String, set: String, index: String): AerospikeIO[Unit] = {
+      DropIndex(namespace, set, index)
     }
 
     private def decodeVector[T](vector: Vector[(Key, Record)])
