@@ -2,12 +2,12 @@ package io.aeroless
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-import com.aerospike.client.listener._
+import com.aerospike.client.listener.{WriteListener, _}
 import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.AerospikeIO.{Add, Append, Bind, Delete, Exists, FMap, Fail, Get, GetAll, Join, Prepend, Pure, Put, Query, ScanAll, Touch}
+import io.aeroless.AerospikeIO.{Add, Append, Bind, Delete, Exists, FMap, Fail, Get, GetAll, Header, Join, Prepend, Pure, Put, Query, ScanAll, Touch}
 
 object KleisliInterpreter { module =>
 
@@ -167,6 +167,19 @@ object KleisliInterpreter { module =>
           override def onSuccess(): Unit = promise.success(results.result())
 
         }, m.batchPolicy.orNull, keys.toArray)
+
+      promise.future
+    }
+
+      //TODO not sure about what header do?
+    case Header(key) => kleisli[Unit] { m =>
+      val promise = Promise[Unit]
+
+      m.client.getHeader(m.eventLoops.next(), new RecordListener {
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+
+        override def onSuccess(key: Key, record: Record): Unit = promise.success(())
+      }, m.policy.orNull, key)
 
       promise.future
     }

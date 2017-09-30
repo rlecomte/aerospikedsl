@@ -1,7 +1,5 @@
 package io.aeroless
 
-import scala.collection.immutable.IntMap.Bin
-
 import com.aerospike.client.async.{AsyncClient, AsyncClientPolicy, EventLoops, NettyEventLoops}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, GivenWhenThen, Matchers}
@@ -77,6 +75,18 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     val io = for {
       _ <- put(key, TestValue("value"))
       _ <- touch(key)
+    } yield ()
+
+    whenReady(io.runFuture(manager)) { _ =>
+      ()
+    }
+  }
+
+  "Header operation" should "work" in {
+    val key = kd("HeaderOps")
+    val io = for {
+      _ <- put(key, TestValue("value"))
+      _ <- header[TestValue](key)
     } yield ()
 
     whenReady(io.runFuture(manager)) { _ =>

@@ -58,6 +58,8 @@ object AerospikeIO {
 
   final case class Touch(key: Key) extends AerospikeIO[Key]
 
+  final case class Header(key: Key) extends AerospikeIO[Unit]
+
   final case class Exists(key: Key) extends AerospikeIO[Boolean]
 
   final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, Record)]]

@@ -55,7 +55,7 @@ case class AsObject(value: Map[String, Eval[AsValue]]) extends AsValue {
 
 case class AsArray(value: Array[Eval[AsValue]]) extends AsValue {
 
-  def at(idx: Int): Option[AsValue] = if (value.length > idx || idx < 0) None else Some(value(idx).value)
+  def at(idx: Int): Option[AsValue] = if (idx >= value.length || idx < 0) None else Some(value(idx).value)
 }
 
 case class AsLong(value: Long) extends AsValue

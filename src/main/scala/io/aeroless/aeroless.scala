@@ -76,6 +76,10 @@ package object aeroless {
       Touch(key)
     }
 
+    def header[T](key: Key)(implicit decoder: Decoder[T]): AerospikeIO[Unit] = {
+      Header(key)
+    }
+
     def exists(key: Key): AerospikeIO[Boolean] = {
       Exists(key)
     }
