@@ -1,7 +1,7 @@
 package io.aeroless
 
 import com.aerospike.client.query.IndexType
-import com.aerospike.client.{Bin, Key, Operation, Record}
+import com.aerospike.client._
 
 import cats.MonadError
 import io.aeroless.AerospikeIO.{Bind, FMap, Fail, Join}
@@ -76,6 +76,11 @@ object AerospikeIO {
 
   //Operate
   final case class Operate(key: Key, ops: Seq[Operation]) extends AerospikeIO[Option[Record]]
+
+  //Udf
+  final case class RegisterUDF(resourcePath: String, serverPath: String, loader: ClassLoader, language: Language) extends AerospikeIO[Unit]
+
+  final case class RemoveUDF(serverPath: String) extends AerospikeIO[Unit]
 
   //Plumbing
   final case class Pure[A, B](x: A) extends AerospikeIO[A]

@@ -1,5 +1,6 @@
 package io.aeroless
 
+import com.aerospike.client.Value
 import com.aerospike.client.async.{AsyncClient, AsyncClientPolicy, EventLoops, NettyEventLoops}
 import com.aerospike.client.query.IndexType
 import org.scalatest.concurrent.ScalaFutures
@@ -108,7 +109,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     }
   }
 
-  "Query statement operation" should "work" in {
+  /*"Query statement operation" should "work" in {
     val io = for {
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
       _ <- put(kd("test_stmt_2"), TestValue("stmt2"))
@@ -126,7 +127,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
         TestValue("stmt4")
       )
     }
-  }
+  }*/
 
   "scan all operation" should "work" in {
     val io = for {
@@ -186,6 +187,33 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
     whenReady(io.runFuture(manager)) { r =>
       r should equal(Some(TestValue("with_prefix_value_with_suffix")))
+    }
+  }
+
+  case class Person(name: String, age: Int)
+  "Aggregate operation" should "work" in {
+    val key = keydomain("test", "set2")("Aggregate_Ops")
+    val aggregateFunction = AggregateFunction(
+      path = "persons.lua",
+      pack = "persons",
+      funName = "filterByAge"
+    )
+
+    val io = for {
+      _ <- registerUDF("persons.lua", "persons.lua")
+      _ <- createIndex("test", "set2", "age", IndexType.NUMERIC)
+      _ <- put(key, Person("Romain", 28))
+      _ <- put(key, Person("Bob", 33))
+      r <- query[Person](statement("test", "set2").onRange("age", 10, 40).aggregate(aggregateFunction)(
+        Value.get(30)
+      ))
+      _ <- removeUdf("persons.lua")
+    } yield r.map(_._2)
+
+    whenReady(io.runFuture(manager)) { r =>
+      r should contain theSameElementsAs Seq(
+        Person("Bob", 33)
+      )
     }
   }
 }

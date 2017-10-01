@@ -20,8 +20,10 @@ object Encoder {
   import shapeless.labelled._
   import shapeless.ops.hlist.IsHCons
 
-  trait InternalEncoder[A] {
+  trait InternalEncoder[A] { self =>
     def encode(a: A): Value
+
+    def contramap[B](f: B => A): InternalEncoder[B] = (b: B) => self.encode(f(b))
   }
 
   private def instance[A](f: A => Value) = new InternalEncoder[A] {
@@ -29,6 +31,10 @@ object Encoder {
   }
 
   implicit val longEncoder: InternalEncoder[Long] = instance(v => new LongValue(v))
+
+  implicit val intEncoder: InternalEncoder[Int] = longEncoder.contramap(_.toLong)
+
+  implicit val booleanEncoder: InternalEncoder[Boolean] = longEncoder.contramap(b => if (b) 1L else 0L)
 
   implicit val stringEncoder: InternalEncoder[String] = instance(v => new StringValue(v))
 

@@ -1,13 +1,13 @@
 package io.aeroless
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
 import com.aerospike.client.listener.{WriteListener, _}
 import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.AerospikeIO.{Add, Append, Bind, CreateIndex, Delete, DropIndex, Exists, FMap, Fail, Get, GetAll, Header, Join, Operate, Prepend, Pure, Put, Query, ScanAll, Touch}
+import io.aeroless.AerospikeIO.{Add, Append, Bind, CreateIndex, Delete, DropIndex, Exists, FMap, Fail, Get, GetAll, Header, Join, Operate, Prepend, Pure, Put, Query, RegisterUDF, RemoveUDF, ScanAll, Touch}
 
 object KleisliInterpreter { module =>
 
@@ -126,7 +126,18 @@ object KleisliInterpreter { module =>
 
           override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
-          override def onRecord(key: Key, record: Record): Unit = results += (key -> record)
+          override def onRecord(key: Key, record: Record): Unit = {
+            if (record.bins.containsKey("FAILURE")) {
+              promise.failure(new AerospikeException(-99, record.bins.get("FAILURE").toString))
+            } else {
+              val newRecord = new Record(
+                record.getMap("SUCCESS").asInstanceOf[java.util.Map[String, AnyRef]],
+                record.generation,
+                record.expiration
+              )
+              results += (key -> newRecord)
+            }
+          }
 
           override def onSuccess(): Unit = promise.success(results.result())
 
@@ -198,7 +209,9 @@ object KleisliInterpreter { module =>
 
     case DropIndex(ns, set, idx) => kleisli[Unit] { m =>
       Future {
-        m.client.dropIndex(m.policy.orNull, ns, set, idx)
+        blocking {
+          m.client.dropIndex(m.policy.orNull, ns, set, idx)
+        }
       }
     }
 
@@ -214,6 +227,23 @@ object KleisliInterpreter { module =>
       promise.future
     }
 
+    case RegisterUDF(path, serverPath, loader, lang) => kleisli[Unit] { m =>
+      Future {
+        blocking {
+          val t = m.client.register(m.policy.orNull, loader, path, serverPath, lang)
+          t.waitTillComplete()
+        }
+      }
+    }
+
+    case RemoveUDF(serverPath) => kleisli[Unit] { m =>
+      Future {
+        blocking {
+          m.client.removeUdf(m.infoPolicy.orNull, serverPath)
+        }
+      }
+    }
+
     case Pure(x) => kleisli { _ => Future.successful(x) }
 
     case Join(opA, opB) => kleisli { m =>
@@ -227,7 +257,6 @@ object KleisliInterpreter { module =>
 
     case Bind(x, f) => kleisli { m =>
       module.apply(ec)(x)(m).flatMap(r => module.apply(ec)(f(r))(m))
-
     }
 
     case FMap(x, f) => kleisli { m =>

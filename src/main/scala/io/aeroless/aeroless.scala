@@ -2,12 +2,15 @@ package io
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import com.aerospike.client.Value._
 import com.aerospike.client.query.IndexType
-import com.aerospike.client.{Bin, Key, Operation, Record}
+import com.aerospike.client._
 
 import io.aeroless.parser.{AsValue, Decoder, Encoder}
 
 package object aeroless {
+
+  val DefaultClassLoader = getClass.getClassLoader
 
   object keydomain {
 
@@ -58,6 +61,19 @@ package object aeroless {
         set = set
       )
     }
+  }
+
+  object scriptValue {
+
+    def apply(v: Boolean): Value = new BooleanValue(v)
+
+    def apply(v: Long): Value = new LongValue(v)
+
+    def apply(v: Int): Value = new IntegerValue(v)
+
+    def apply(v: String): Value = new StringValue(v)
+
+    def nullValue: Value = NullValue.INSTANCE
   }
 
   object connection {
@@ -137,6 +153,14 @@ package object aeroless {
           }
         case None => AerospikeIO.successful(None)
       }
+    }
+
+    def registerUDF(resourcePath: String, serverPath: String, loader: ClassLoader = DefaultClassLoader, language: Language = Language.LUA): AerospikeIO[Unit] = {
+      RegisterUDF(resourcePath, serverPath, loader = loader, language = language)
+    }
+
+    def removeUdf(serverPath: String): AerospikeIO[Unit] = {
+      RemoveUDF(serverPath)
     }
 
     private def decodeVector[T](vector: Vector[(Key, Record)])
