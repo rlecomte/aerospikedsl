@@ -69,28 +69,28 @@ package object aeroless {
 
     def pure[A](x: A): AerospikeIO[A] = Pure(x)
 
-    def put[T](key: Key, obj: T)(implicit encoder: Encoder[T]): AerospikeIO[Key] = Put(key, encoder.encode(obj).toBins)
+    def put[T](key: Key, obj: T)(implicit encoder: Encoder[T]): AerospikeIO[Unit] = Put(key, encoder.encode(obj).toBins)
 
-    def append(key: Key, bins: Map[String, String]): AerospikeIO[Key] = {
+    def append(key: Key, bins: Map[String, String]): AerospikeIO[Unit] = {
       Append(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)
     }
 
-    def prepend(key: Key, bins: Map[String, String]): AerospikeIO[Key] = {
+    def prepend(key: Key, bins: Map[String, String]): AerospikeIO[Unit] = {
       Prepend(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)
     }
 
-    def delete(key: Key): AerospikeIO[Key] = {
+    def delete(key: Key): AerospikeIO[Unit] = {
       Delete(key)
     }
 
-    def add(key: Key, numBin: Seq[(String, Long)]): AerospikeIO[Key] = {
+    def add(key: Key, numBin: Seq[(String, Long)]): AerospikeIO[Unit] = {
       Add(key, numBin.map { case (k, v) => new Bin(k, v) })
     }
 
     def get[T](key: Key, bins: Seq[String])(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
       Get(key, bins).flatMap {
         case Some(r) =>
-          decoder.dsl.runEither(AsValue.fromRecord(r)) match {
+          decoder.dsl.runEither(r) match {
             case Right(v) => AerospikeIO.successful(Some(v))
             case Left(err) => AerospikeIO.failed(err)
           }
@@ -98,7 +98,7 @@ package object aeroless {
       }
     }
 
-    def touch(key: Key): AerospikeIO[Key] = {
+    def touch(key: Key): AerospikeIO[Unit] = {
       Touch(key)
     }
 
@@ -134,7 +134,7 @@ package object aeroless {
     def operate[T](key: Key)(ops: Operation*)(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
       Operate(key, ops).flatMap {
         case Some(r) =>
-          decoder.dsl.runEither(AsValue.fromRecord(r)) match {
+          decoder.dsl.runEither(r) match {
             case Right(v) => AerospikeIO.successful(Some(v))
             case Left(err) => AerospikeIO.failed(err)
           }
@@ -150,14 +150,14 @@ package object aeroless {
       RemoveUDF(serverPath)
     }
 
-    private def decodeVector[T](vector: Vector[(Key, Record)])
+    private def decodeVector[T](vector: Vector[(Key, AsValue)])
       (implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
       import cats.instances.either._
       import cats.instances.vector._
       import cats.syntax.traverse._
 
       vector.traverse[Either[Throwable, ?], (Key, T)] { t =>
-        decoder.dsl.runEither(AsValue.fromRecord(t._2)).map(r => (t._1, r))
+        decoder.dsl.runEither(t._2).map(r => (t._1, r))
       } match {
         case Right(vec) => AerospikeIO.successful(vec)
         case Left(t) => AerospikeIO.failed(t)
@@ -169,7 +169,9 @@ package object aeroless {
 
     def runFuture(manager: AerospikeManager)(implicit ec: ExecutionContext): Future[A] = {
       import cats.implicits._
-      BaseInterpreter[Kleisli[Future, AerospikeManager, ?]](LogInterpreter[Kleisli[Future, AerospikeManager, ?]](KleisliInterpreter.apply(ec)).apply).apply(io).apply(manager)
+      val f = BaseInterpreter[Kleisli[Future, AerospikeManager, ?]](LogInterpreter[Kleisli[Future, AerospikeManager, ?]](KleisliInterpreter.apply(ec)).apply).apply(io).apply(manager)
+      f.failed.map(_.printStackTrace)
+      f
     }
   }
 

@@ -5,6 +5,7 @@ import com.aerospike.client._
 
 import cats.MonadError
 import io.aeroless.AerospikeIO.{Bind, FMap, Fail, Join}
+import io.aeroless.parser.AsValue
 
 abstract class AerospikeIO[A] { self =>
   def map[B](f: A => B): AerospikeIO[B] = FMap(this, f)
@@ -45,29 +46,29 @@ object AerospikeIO {
   def failed[A](t: Throwable): AerospikeIO[A] = Fail(t)
 
   //Basic
-  final case class Put(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+  final case class Put(key: Key, bins: Seq[Bin]) extends AerospikeIO[Unit]
 
-  final case class Append(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+  final case class Append(key: Key, bins: Seq[Bin]) extends AerospikeIO[Unit]
 
-  final case class Prepend(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+  final case class Prepend(key: Key, bins: Seq[Bin]) extends AerospikeIO[Unit]
 
-  final case class Add(key: Key, bins: Seq[Bin]) extends AerospikeIO[Key]
+  final case class Add(key: Key, bins: Seq[Bin]) extends AerospikeIO[Unit]
 
-  final case class Get(key: Key, bins: Seq[String]) extends AerospikeIO[Option[Record]]
+  final case class Get(key: Key, bins: Seq[String]) extends AerospikeIO[Option[AsValue]]
 
-  final case class Delete(key: Key) extends AerospikeIO[Key]
+  final case class Delete(key: Key) extends AerospikeIO[Unit]
 
-  final case class Touch(key: Key) extends AerospikeIO[Key]
+  final case class Touch(key: Key) extends AerospikeIO[Unit]
 
   final case class Header(key: Key) extends AerospikeIO[Unit]
 
   final case class Exists(key: Key) extends AerospikeIO[Boolean]
 
-  final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, Record)]]
+  final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, AsValue)]]
 
-  final case class ScanAll(namespace: String, set: String, binNames: Seq[String]) extends AerospikeIO[Vector[(Key, Record)]]
+  final case class ScanAll(namespace: String, set: String, binNames: Seq[String]) extends AerospikeIO[Vector[(Key, AsValue)]]
 
-  final case class GetAll[A](keys: Seq[Key]) extends AerospikeIO[Vector[(Key, Record)]]
+  final case class GetAll[A](keys: Seq[Key]) extends AerospikeIO[Vector[(Key, AsValue)]]
 
   //Index
   final case class CreateIndex(namespace: String, set: String, binName: String, idxType: IndexType, index: Option[String]) extends AerospikeIO[String]
@@ -75,7 +76,7 @@ object AerospikeIO {
   final case class DropIndex(namespace: String, set: String, index: String) extends AerospikeIO[Unit]
 
   //Operate
-  final case class Operate(key: Key, ops: Seq[Operation]) extends AerospikeIO[Option[Record]]
+  final case class Operate(key: Key, ops: Seq[Operation]) extends AerospikeIO[Option[AsValue]]
 
   //Udf
   final case class RegisterUDF(resourcePath: String, serverPath: String, loader: ClassLoader, language: Language) extends AerospikeIO[Unit]

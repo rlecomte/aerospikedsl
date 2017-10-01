@@ -114,12 +114,13 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   }
 
   "Query statement operation" should "work" in {
+    val kd = keydomain("test", "setQueryOps")
     val io = for {
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
       _ <- put(kd("test_stmt_2"), TestValue("stmt2"))
       _ <- put(kd("test_stmt_3"), TestValue("stmt3"))
       _ <- put(kd("test_stmt_4"), TestValue("stmt4"))
-      record <- query[TestValue](statement("test", "set").readBins("id"))
+      record <- query[TestValue](statement("test", "setQueryOps").readBins("id"))
     } yield record.map(_._2)
 
 
@@ -197,7 +198,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   case class Person(name: String, age: Int)
 
   "Aggregate operation" should "work" in {
-    val key = keydomain("test", "set2")("Aggregate_Ops")
+    val key = keydomain("test", "setAggregateOps")("Aggregate_Ops")
     val aggregateFunction = AggregateFunction(
       path = "persons.lua",
       pack = "persons",
@@ -206,10 +207,10 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
     val io = for {
       _ <- registerUDF("persons.lua", "persons.lua")
-      _ <- createIndex("test", "set2", "age", IndexType.NUMERIC)
+      _ <- createIndex("test", "setAggregateOps", "age", IndexType.NUMERIC)
       _ <- put(key, Person("Romain", 28))
       _ <- put(key, Person("Bob", 33))
-      r <- query[Person](statement("test", "set2").onRange("age", 10, 40).aggregate(aggregateFunction)(
+      r <- query[Person](statement("test", "setAggregateOps").onRange("age", 10, 40).aggregate(aggregateFunction)(
         Value.get(30)
       ))
       _ <- removeUdf("persons.lua")
