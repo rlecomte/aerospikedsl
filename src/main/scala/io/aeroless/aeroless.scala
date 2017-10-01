@@ -3,7 +3,7 @@ package io
 import scala.concurrent.{ExecutionContext, Future}
 
 import com.aerospike.client.query.IndexType
-import com.aerospike.client.{Bin, Key, Record}
+import com.aerospike.client.{Bin, Key, Operation, Record}
 
 import io.aeroless.parser.{AsValue, Decoder, Encoder}
 
@@ -26,6 +26,28 @@ package object aeroless {
 
       override def apply(idx: Int): Key = new Key(namespace, set, idx)
     }
+  }
+
+  object ops {
+    def prepend(binName: String, value: String): Operation = Operation.prepend(new Bin(binName, value))
+
+    def append(binName: String, value: String): Operation = Operation.append(new Bin(binName, value))
+
+    def put(binName: String, value: String): Operation = Operation.put(new Bin(binName, value))
+
+    def put(binName: String, value: Long): Operation = Operation.put(new Bin(binName, value))
+
+    def put(binName: String, value: Int): Operation = Operation.put(new Bin(binName, value))
+
+    def add(binName: String, value: Long): Operation = Operation.add(new Bin(binName, value))
+
+    def add(binName: String, value: Int): Operation = Operation.add(new Bin(binName, value))
+
+    def get(binName: String): Operation = Operation.get(binName)
+
+    def getAll: Operation = Operation.get()
+
+    def touch: Operation = Operation.touch()
   }
 
   object statement {
@@ -77,7 +99,7 @@ package object aeroless {
       Touch(key)
     }
 
-    def header[T](key: Key)(implicit decoder: Decoder[T]): AerospikeIO[Unit] = {
+    def header(key: Key): AerospikeIO[Unit] = {
       Header(key)
     }
 
@@ -104,6 +126,17 @@ package object aeroless {
 
     def dropIndex(namespace: String, set: String, index: String): AerospikeIO[Unit] = {
       DropIndex(namespace, set, index)
+    }
+
+    def operate[T](key: Key)(ops: Operation*)(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
+      Operate(key, ops).flatMap {
+        case Some(r) =>
+          decoder.dsl.runEither(AsValue.fromRecord(r)) match {
+            case Right(v) => AerospikeIO.successful(Some(v))
+            case Left(err) => AerospikeIO.failed(err)
+          }
+        case None => AerospikeIO.successful(None)
+      }
     }
 
     private def decodeVector[T](vector: Vector[(Key, Record)])

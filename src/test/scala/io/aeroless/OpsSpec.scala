@@ -87,7 +87,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     val key = kd("HeaderOps")
     val io = for {
       _ <- put(key, TestValue("value"))
-      _ <- header[TestValue](key)
+      _ <- header(key)
     } yield ()
 
     whenReady(io.runFuture(manager)) { _ =>
@@ -172,6 +172,20 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
 
     whenReady(io.runFuture(manager)) { _ =>
       ()
+    }
+  }
+
+  "Operate operation" should "work" in {
+    val key = kd("Operate_Ops")
+    val io = operate[TestValue](key)(
+      ops.put("id", "value"),
+      ops.append("id", "_with_suffix"),
+      ops.prepend("id", "with_prefix_"),
+      ops.getAll
+    )
+
+    whenReady(io.runFuture(manager)) { r =>
+      r should equal(Some(TestValue("with_prefix_value_with_suffix")))
     }
   }
 }

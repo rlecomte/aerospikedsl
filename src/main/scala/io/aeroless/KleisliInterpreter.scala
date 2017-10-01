@@ -3,12 +3,11 @@ package io.aeroless
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 import com.aerospike.client.listener.{WriteListener, _}
-import com.aerospike.client.query.IndexType
 import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
 import cats.~>
-import io.aeroless.AerospikeIO.{Add, Append, Bind, CreateIndex, Delete, DropIndex, Exists, FMap, Fail, Get, GetAll, Header, Join, Prepend, Pure, Put, Query, ScanAll, Touch}
+import io.aeroless.AerospikeIO.{Add, Append, Bind, CreateIndex, Delete, DropIndex, Exists, FMap, Fail, Get, GetAll, Header, Join, Operate, Prepend, Pure, Put, Query, ScanAll, Touch}
 
 object KleisliInterpreter { module =>
 
@@ -201,6 +200,18 @@ object KleisliInterpreter { module =>
       Future {
         m.client.dropIndex(m.policy.orNull, ns, set, idx)
       }
+    }
+
+    case Operate(key, ops) => kleisli[Option[Record]] { m =>
+      val promise = Promise[Option[Record]]
+
+      m.client.operate(m.eventLoops.next(), new RecordListener {
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+
+        override def onSuccess(key: Key, record: Record): Unit = promise.success(Option(record))
+      }, m.writePolicy.orNull, key, ops: _*)
+
+      promise.future
     }
 
     case Pure(x) => kleisli { _ => Future.successful(x) }

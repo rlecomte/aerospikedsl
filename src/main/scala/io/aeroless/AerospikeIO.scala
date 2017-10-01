@@ -1,7 +1,7 @@
 package io.aeroless
 
 import com.aerospike.client.query.IndexType
-import com.aerospike.client.{Bin, Key, Record}
+import com.aerospike.client.{Bin, Key, Operation, Record}
 
 import cats.MonadError
 import io.aeroless.AerospikeIO.{Bind, FMap, Fail, Join}
@@ -73,6 +73,9 @@ object AerospikeIO {
   final case class CreateIndex(namespace: String, set: String, binName: String, idxType: IndexType, index: Option[String]) extends AerospikeIO[String]
 
   final case class DropIndex(namespace: String, set: String, index: String) extends AerospikeIO[Unit]
+
+  //Operate
+  final case class Operate(key: Key, ops: Seq[Operation]) extends AerospikeIO[Option[Record]]
 
   //Plumbing
   final case class Pure[A, B](x: A) extends AerospikeIO[A]
