@@ -2,9 +2,10 @@ package io
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import com.aerospike.client.Value._
 import com.aerospike.client.query.IndexType
 import com.aerospike.client._
+
+import cats.data.Kleisli
 
 package object aeroless {
 
@@ -59,19 +60,6 @@ package object aeroless {
         set = set
       )
     }
-  }
-
-  object scriptValue {
-
-    def apply(v: Boolean): Value = new BooleanValue(v)
-
-    def apply(v: Long): Value = new LongValue(v)
-
-    def apply(v: Int): Value = new IntegerValue(v)
-
-    def apply(v: String): Value = new StringValue(v)
-
-    def nullValue: Value = NullValue.INSTANCE
   }
 
   object connection {
@@ -180,7 +168,8 @@ package object aeroless {
   implicit class AerospikeIOOps[A](io: AerospikeIO[A]) {
 
     def runFuture(manager: AerospikeManager)(implicit ec: ExecutionContext): Future[A] = {
-      KleisliInterpreter.apply(ec)(io).apply(manager)
+      import cats.implicits._
+      BaseInterpreter[Kleisli[Future, AerospikeManager, ?]](LogInterpreter[Kleisli[Future, AerospikeManager, ?]](KleisliInterpreter.apply(ec)).apply).apply(io).apply(manager)
     }
   }
 

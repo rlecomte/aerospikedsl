@@ -6,25 +6,26 @@ import com.aerospike.client.listener.{WriteListener, _}
 import com.aerospike.client.{AerospikeException, Key, Record}
 
 import cats.data.Kleisli
-import cats.~>
+import cats.{MonadError, ~>}
 import io.aeroless.AerospikeIO.{Add, Append, Bind, CreateIndex, Delete, DropIndex, Exists, FMap, Fail, Get, GetAll, Header, Join, Operate, Prepend, Pure, Put, Query, RegisterUDF, RemoveUDF, ScanAll, Touch}
+import io.aeroless.KleisliInterpreter.kleisli
 
-object KleisliInterpreter { module =>
+object KleisliInterpreter {
 
   def apply(implicit ec: ExecutionContext): AerospikeIO ~> Kleisli[Future, AerospikeManager, ?] = λ[AerospikeIO ~> Kleisli[Future, AerospikeManager, ?]] {
 
     case Put(key, bins) => kleisli[Key] { m =>
 
       val promise = Promise[Key]()
-      
+
       m.client.put(m.eventLoops.next(), new WriteListener {
         override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
         override def onSuccess(key: Key): Unit = promise.success(key)
 
       }, m.writePolicy.orNull, key, bins: _*)
-      
-      
+
+
       promise.future
     }
 
@@ -120,28 +121,28 @@ object KleisliInterpreter { module =>
     case Query(statement) => kleisli[Vector[(Key, Record)]] { m =>
       val promise = Promise[Vector[(Key, Record)]]()
 
-        m.client.query(m.eventLoops.next(), new RecordSequenceListener {
+      m.client.query(m.eventLoops.next(), new RecordSequenceListener {
 
-          val results = Vector.newBuilder[(Key, Record)]
+        val results = Vector.newBuilder[(Key, Record)]
 
-          override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
-          override def onRecord(key: Key, record: Record): Unit = {
-            if (record.bins.containsKey("FAILURE")) {
-              promise.failure(new AerospikeException(-99, record.bins.get("FAILURE").toString))
-            } else {
-              val newRecord = new Record(
-                record.getMap("SUCCESS").asInstanceOf[java.util.Map[String, AnyRef]],
-                record.generation,
-                record.expiration
-              )
-              results += (key -> newRecord)
-            }
+        override def onRecord(key: Key, record: Record): Unit = {
+          if (record.bins.containsKey("FAILURE")) {
+            promise.failure(new AerospikeException(-99, record.bins.get("FAILURE").toString))
+          } else {
+            val newRecord = new Record(
+              record.getMap("SUCCESS").asInstanceOf[java.util.Map[String, AnyRef]],
+              record.generation,
+              record.expiration
+            )
+            results += (key -> newRecord)
           }
+        }
 
-          override def onSuccess(): Unit = promise.success(results.result())
+        override def onSuccess(): Unit = promise.success(results.result())
 
-        }, m.queryPolicy.orNull, statement.toStatement)
+      }, m.queryPolicy.orNull, statement.toStatement)
 
       promise.future
     }
@@ -149,17 +150,17 @@ object KleisliInterpreter { module =>
     case ScanAll(ns, set, bins) => kleisli[Vector[(Key, Record)]] { m =>
       val promise = Promise[Vector[(Key, Record)]]()
 
-        m.client.scanAll(m.eventLoops.next(), new RecordSequenceListener {
+      m.client.scanAll(m.eventLoops.next(), new RecordSequenceListener {
 
-          val results = Vector.newBuilder[(Key, Record)]
+        val results = Vector.newBuilder[(Key, Record)]
 
-          override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
-          override def onRecord(key: Key, record: Record): Unit = results += (key -> record)
+        override def onRecord(key: Key, record: Record): Unit = results += (key -> record)
 
-          override def onSuccess(): Unit = promise.success(results.result())
+        override def onSuccess(): Unit = promise.success(results.result())
 
-        }, m.scanPolicy.orNull, ns, set, bins: _*)
+      }, m.scanPolicy.orNull, ns, set, bins: _*)
 
       promise.future
     }
@@ -167,22 +168,22 @@ object KleisliInterpreter { module =>
     case GetAll(keys) => kleisli[Vector[(Key, Record)]] { m =>
       val promise = Promise[Vector[(Key, Record)]]()
 
-        m.client.get(m.eventLoops.next(), new RecordSequenceListener {
+      m.client.get(m.eventLoops.next(), new RecordSequenceListener {
 
-          val results = Vector.newBuilder[(Key, Record)]
+        val results = Vector.newBuilder[(Key, Record)]
 
-          override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
+        override def onFailure(exception: AerospikeException): Unit = promise.failure(exception)
 
-          override def onRecord(key: Key, record: Record): Unit = results += (key -> record)
+        override def onRecord(key: Key, record: Record): Unit = results += (key -> record)
 
-          override def onSuccess(): Unit = promise.success(results.result())
+        override def onSuccess(): Unit = promise.success(results.result())
 
-        }, m.batchPolicy.orNull, keys.toArray)
+      }, m.batchPolicy.orNull, keys.toArray)
 
       promise.future
     }
 
-      //TODO not sure about what header do?
+    //TODO not sure about what header do?
     case Header(key) => kleisli[Unit] { m =>
       val promise = Promise[Unit]
 
@@ -243,29 +244,82 @@ object KleisliInterpreter { module =>
         }
       }
     }
-
-    case Pure(x) => kleisli { _ => Future.successful(x) }
-
-    case Join(opA, opB) => kleisli { m =>
-      val f1: Future[Any] = module.apply(ec)(opA)(m)
-      val f2: Future[Any] = module.apply(ec)(opB)(m)
-      for {
-        a <- f1
-        b <- f2
-      } yield (a, b)
-    }
-
-    case Bind(x, f) => kleisli { m =>
-      module.apply(ec)(x)(m).flatMap(r => module.apply(ec)(f(r))(m))
-    }
-
-    case FMap(x, f) => kleisli { m =>
-      module.apply(ec)(x)(m).map(f)
-    }
-
-    case Fail(t) => kleisli { _ => Future.failed(t) }
   }
 
 
   private def kleisli[A](f: AerospikeManager => Future[A]): Kleisli[Future, AerospikeManager, A] = Kleisli.apply[Future, AerospikeManager, A](f)
+}
+
+case class LogInterpreter[F[_]](interpreter: AerospikeIO ~> F) {
+  module =>
+
+  val apply: AerospikeIO ~> F = λ[AerospikeIO ~> F] {
+    case e@Put(key, bins) => time(s"#Put $key $bins", e)
+
+    case e@Append(key, bins) => time(s"#Append $key $bins", e)
+
+    case e@Prepend(key, bins) => time(s"#Prepend $key $bins", e)
+
+    case e@Add(key, bins) => time(s"#Add $key $bins", e)
+
+    case e@Delete(key) => time(s"#Delete $key", e)
+
+    case e@Touch(key) => time(s"#Touch $key", e)
+
+    case e@Exists(key) => time(s"#Exists $key", e)
+
+    case e@Get(key, bins) => time(s"#Get $key $bins", e)
+
+    case e@Query(statement) => time(s"#Query $statement", e)
+
+    case e@ScanAll(ns, set, bins) => time(s"#ScanAll $ns $set $bins", e)
+
+    case e@GetAll(keys) => time(s"#GetAll $keys", e)
+
+    case e@Header(key) => time(s"#Header $key", e)
+
+    case e@CreateIndex(ns, set, bin, idxType, idxOpt) => time(s"#CreateIndex $ns $set $bin $idxType $idxOpt", e)
+
+    case e@DropIndex(ns, set, idx) => time(s"#DropIndex $ns $set $idx", e)
+
+    case e@Operate(key, ops) => time(s"#Operate $key $ops", e)
+
+    case e@RegisterUDF(path, serverPath, _, lang) => time(s"#RegisterUDF $path $serverPath $lang", e)
+
+    case e@RemoveUDF(serverPath) => time(s"#RemoveUDF $serverPath", e)
+  }
+
+  private val LogHeader =
+    """
+      |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |
+    """.stripMargin
+
+  private def time[A](operation: String, io: AerospikeIO[A]): F[A] = {
+    val startT = System.currentTimeMillis()
+    val r = interpreter.apply(io)
+    val endT = System.currentTimeMillis() - startT
+    println(s"$LogHeader$operation [$endT ms]")
+    r
+  }
+}
+
+case class BaseInterpreter[F[_]](interpreter: AerospikeIO ~> F)(implicit ev: MonadError[F, Throwable]) {
+  module =>
+
+  val apply: AerospikeIO ~> F = new (AerospikeIO ~> F) {
+    override def apply[A](fa: AerospikeIO[A]): F[A] = fa match {
+      case Pure(x) => ev.pure(x)
+
+      case Join(opA, opB) => ev.tuple2(module.apply(opA), module.apply(opB))
+
+      case Bind(x, f) => ev.flatMap(module.apply(x))(r => module.apply(f(r)))
+
+      case FMap(x, f) => ev.map(module.apply(x))(f)
+
+      case Fail(t) => ev.raiseError(t)
+
+      case _ => interpreter(fa)
+    }
+  }
 }
