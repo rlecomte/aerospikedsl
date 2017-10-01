@@ -1,62 +1,71 @@
 package io.aeroless.parser
 
+import java.util
+
+import com.aerospike.client.Value
 import com.aerospike.client.Value._
-import com.aerospike.client.command.ParticleType
-import com.aerospike.client.{Bin, Value}
 
 trait Encoder[A] {
   self =>
 
-  def encode(a: A): Seq[Bin]
+  def encode(a: A): Value
 
   def contramap[B](f: B => A): Encoder[B] = (b: B) => self.encode(f(b))
 }
 
 object Encoder {
 
-  import scala.collection.JavaConverters._
-
   import shapeless._
   import shapeless.labelled._
   import shapeless.ops.hlist.IsHCons
 
-  trait InternalEncoder[A] { self =>
-    def encode(a: A): Value
-
-    def contramap[B](f: B => A): InternalEncoder[B] = (b: B) => self.encode(f(b))
-  }
-
-  private def instance[A](f: A => Value) = new InternalEncoder[A] {
+  private def instance[A](f: A => Value) = new Encoder[A] {
     override def encode(a: A): Value = f(a)
   }
 
-  implicit val longEncoder: InternalEncoder[Long] = instance(v => new LongValue(v))
+  implicit val longEncoder: Encoder[Long] = instance(v => new LongValue(v))
 
-  implicit val intEncoder: InternalEncoder[Int] = longEncoder.contramap(_.toLong)
+  implicit val intEncoder: Encoder[Int] = longEncoder.contramap(_.toLong)
 
-  implicit val booleanEncoder: InternalEncoder[Boolean] = longEncoder.contramap(b => if (b) 1L else 0L)
+  implicit val booleanEncoder: Encoder[Boolean] = longEncoder.contramap(b => if (b) 1L else 0L)
 
-  implicit val stringEncoder: InternalEncoder[String] = instance(v => new StringValue(v))
+  implicit val stringEncoder: Encoder[String] = instance(v => new StringValue(v))
 
-  implicit def mapEncoder[V](implicit evV: InternalEncoder[V]): InternalEncoder[Map[String, V]] = instance(kv => new MapValue(kv.mapValues(evV.encode).asJava))
-
-  implicit def seqEncoder[A](implicit ev: InternalEncoder[A]): InternalEncoder[Seq[A]] = instance { list =>
-    new ListValue(list.map(v => ev.encode(v)).asJava)
+  implicit def mapEncoder[V](implicit evV: Encoder[V]): Encoder[Map[String, V]] = instance { kv =>
+    val javaMap = new util.HashMap[String, AnyRef](kv.size)
+    kv.foreach { case (k, v) =>
+      javaMap.put(k, evV.encode(v))
+    }
+    new MapValue(javaMap)
   }
 
-  implicit def optionEncoder[A](implicit ev: InternalEncoder[A]): InternalEncoder[Option[A]] = instance {
+  implicit def deriveFromTraversableEncoder[A, L[A] <: Traversable[A]](implicit ev: Encoder[A]): Encoder[L[A]] = {
+    traversableEncoder[A].contramap[L[A]](identity)
+  }
+
+  implicit def traversableEncoder[A](implicit ev: Encoder[A]): Encoder[Traversable[A]] = instance { list =>
+    val javaList = new util.ArrayList[Value](list.size)
+    var idx = 0
+    list.foreach { e =>
+      javaList.add(idx, ev.encode(e))
+      idx = idx + 1
+    }
+    new ListValue(javaList)
+  }
+
+  implicit def optionEncoder[A](implicit ev: Encoder[A]): Encoder[Option[A]] = instance {
     case Some(a) => ev.encode(a)
     case None => NullValue.INSTANCE
   }
 
-  implicit val hnilEncoder: InternalEncoder[HNil] = instance(_ => new MapValue(new java.util.HashMap[String, AnyRef]()))
+  implicit val hnilEncoder: Encoder[HNil] = instance(_ => new MapValue(new java.util.HashMap[String, AnyRef]()))
 
   implicit def hlistEncoder[K <: Symbol, H, T <: shapeless.HList](
     implicit witness: Witness.Aux[K],
     isHCons: IsHCons.Aux[H :: T, H, T],
-    hEncoder: Lazy[InternalEncoder[H]],
-    tEncoder: Lazy[InternalEncoder[T]]
-  ): InternalEncoder[FieldType[K, H] :: T] = instance { o =>
+    hEncoder: Lazy[Encoder[H]],
+    tEncoder: Lazy[Encoder[T]]
+  ): Encoder[FieldType[K, H] :: T] = instance { o =>
 
     /*
       dirty mutable code below. we keep reference to the same MapValue with a mutable HashMap inside.
@@ -71,17 +80,9 @@ object Encoder {
 
   implicit def objectEncoder[A, Repr <: HList](
     implicit gen: LabelledGeneric.Aux[A, Repr],
-    hlistEncoder: InternalEncoder[Repr]
+    hlistEncoder: Encoder[Repr]
   ): Encoder[A] = (o: A) => {
-    val value = hlistEncoder.encode(gen.to(o))
-
-    value.getType() match {
-      case ParticleType.MAP => {
-        val map = value.getObject.asInstanceOf[java.util.Map[String, AnyRef]]
-        map.asScala.map { case (k, v) => new Bin(k, v) }.toSeq
-      }
-      case _ => new Bin("value", value) :: Nil
-    }
+    hlistEncoder.encode(gen.to(o))
   }
 
   def apply[A](implicit ev: Encoder[A]): Encoder[A] = ev

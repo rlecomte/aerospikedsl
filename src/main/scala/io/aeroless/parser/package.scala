@@ -1,6 +1,10 @@
 package io.aeroless
 
+import scala.collection.generic.CanBuildFrom
 import scala.util.Try
+
+import com.aerospike.client.command.ParticleType
+import com.aerospike.client.{Bin, Value}
 
 import cats.Applicative
 import io.aeroless.parser.algebra.AsAlgebra
@@ -14,13 +18,15 @@ package object parser {
 
       def at[A](idx: Int)(next: Dsl[A]): F[A]
 
+      def opt[A](next: Dsl[A]): F[Option[A]]
+
       def readString: F[String]
 
       def readLong: F[Long]
 
       def readNull: F[Unit]
 
-      def readValues[A](next: Dsl[A]): F[Seq[A]]
+      def readValues[A, L[_]](next: Dsl[A], cbf: CanBuildFrom[Nothing, A, L[A]]): F[L[A]]
 
       def readFields[A](next: Dsl[A]): F[Map[String, A]]
     }
@@ -42,6 +48,11 @@ package object parser {
         case arr@AsArray(_) => yolo.runUnsafe(next)(arr.at(idx).get)
       }
 
+      override def opt[A](next: Dsl[A]): Stack[Option[A]] = {
+        case AsNull => None
+        case v: AsValue => Some(yolo.runUnsafe(next).apply(v))
+      }
+
       override def readString: Stack[String] = {
         case AsString(s) => s
       }
@@ -52,8 +63,12 @@ package object parser {
 
       override def readNull: Stack[Unit] = _ => ()
 
-      override def readValues[A](next: Dsl[A]): Stack[Seq[A]] = {
-        case AsArray(arr) => arr.map(e => yolo.runUnsafe(next).apply(e.value))
+      override def readValues[A, L[A]](next: Dsl[A], cbf: CanBuildFrom[Nothing, A, L[A]]): Stack[L[A]] = {
+        case AsArray(arr) => {
+          val builder = cbf.apply()
+          arr.foreach(e => builder += yolo.runUnsafe(next).apply(e.value))
+          builder.result()
+        }
       }
 
       override def readFields[A](next: Dsl[A]): Stack[Map[String, A]] = {
@@ -81,6 +96,10 @@ package object parser {
     override def apply[F[_]](implicit ev: AsAlgebra[F]): F[A] = ev.at(idx)(next)
   }
 
+  def opt[A](next: Dsl[A]): Dsl[Option[A]] = new Dsl[Option[A]] {
+    override def apply[F[_]](implicit ev: AsAlgebra[F]): F[Option[A]] = ev.opt(next)
+  }
+
   def readString: Dsl[String] = new Dsl[String] {
     override def apply[F[_]](implicit ev: AsAlgebra[F]): F[String] = ev.readString
   }
@@ -93,8 +112,8 @@ package object parser {
     override def apply[F[_]](implicit ev: AsAlgebra[F]): F[Unit] = ev.readNull
   }
 
-  def readValues[A](next: Dsl[A]): Dsl[Seq[A]] = new Dsl[Seq[A]] {
-    override def apply[F[_]](implicit ev: AsAlgebra[F]): F[Seq[A]] = ev.readValues(next)
+  def readValues[A, L[_]](next: Dsl[A])(implicit cbf: CanBuildFrom[Nothing, A, L[A]]): Dsl[L[A]] = new Dsl[L[A]] {
+    override def apply[F[_]](implicit ev: AsAlgebra[F]): F[L[A]] = ev.readValues(next, cbf)
   }
 
   def readFields[A](next: Dsl[A]): Dsl[Map[String, A]] = new Dsl[Map[String, A]] {
@@ -116,5 +135,19 @@ package object parser {
     def runEither(value: AsValue): Either[Throwable, A] = Try {
       yolo.runUnsafe(dsl)(value)
     }.toEither
+  }
+
+  implicit class ValueOps(value: Value) {
+    def toBins: Seq[Bin] = {
+      import scala.collection.JavaConverters._
+      value.getType match {
+        case ParticleType.MAP => {
+          value.getObject.asInstanceOf[java.util.Map[String, AnyRef]].asScala.map { case (k, v) =>
+            new Bin(k, v)
+          }.toSeq
+        }
+        case _ => new Bin("value", value.getObject) :: Nil
+      }
+    }
   }
 }

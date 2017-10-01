@@ -2,11 +2,31 @@ package io.aeroless.parser
 
 import scala.collection.JavaConverters._
 
-import com.aerospike.client.Record
+import com.aerospike.client.Value._
+import com.aerospike.client.{Record, Value}
 
 import cats.Eval
 
-sealed trait AsValue
+sealed trait AsValue { self =>
+
+  /*
+    Not efficient, use only for testing purpose
+   */
+  def asAerospikeValue: Value = {
+    import collection.JavaConverters._
+    self match {
+      case AsNull => NullValue.INSTANCE
+      case AsString(s) => new StringValue(s)
+      case AsLong(l) => new LongValue(l)
+      case AsObject(map) => {
+        new MapValue(map.mapValues(_.value.asAerospikeValue).asJava)
+      }
+      case AsArray(arr) => {
+        new ListValue(arr.map(_.value.asAerospikeValue).toList.asJava)
+      }
+    }
+  }
+}
 
 object AsValue {
 

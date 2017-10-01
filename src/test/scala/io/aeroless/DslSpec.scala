@@ -32,9 +32,10 @@ class DslSpec extends FlatSpec with Matchers {
 
   case class Details(city: String, company: String)
 
-  case class Person(name: String, age: Int, details: Details)
+  case class Person(name: String, age: Int, details: Option[Details])
+
   "Value" should "be decode" in {
     val tested = Decoder[Person].dsl.runEither(aerospikeValue)
-    info(tested.toString)
+    tested shouldBe Right(Person("Romain", 27, Some(Details("Montpellier", "Tabmo"))))
   }
 }

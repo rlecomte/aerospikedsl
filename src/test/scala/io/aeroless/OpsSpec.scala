@@ -11,8 +11,10 @@ import io.netty.channel.nio.NioEventLoopGroup
 class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWhenThen with ScalaFutures {
 
   import scala.concurrent.ExecutionContext.Implicits.global
-  import connection._
+
   import org.scalatest.time._
+
+  import connection._
 
   implicit val patience = PatienceConfig.apply(timeout = Span(10, Seconds), interval = Span(300, Millis))
 
@@ -25,7 +27,9 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   }
 
   val kd = keydomain("test", "set")
+
   case class TestValue(id: String)
+
   case class LongValue(value: Long)
 
   "Append / Prepend" should "work" in {
@@ -109,7 +113,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     }
   }
 
-  /*"Query statement operation" should "work" in {
+  "Query statement operation" should "work" in {
     val io = for {
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
       _ <- put(kd("test_stmt_2"), TestValue("stmt2"))
@@ -127,7 +131,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
         TestValue("stmt4")
       )
     }
-  }*/
+  }
 
   "scan all operation" should "work" in {
     val io = for {
@@ -191,6 +195,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   }
 
   case class Person(name: String, age: Int)
+
   "Aggregate operation" should "work" in {
     val key = keydomain("test", "set2")("Aggregate_Ops")
     val aggregateFunction = AggregateFunction(

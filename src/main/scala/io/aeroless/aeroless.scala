@@ -6,8 +6,6 @@ import com.aerospike.client.Value._
 import com.aerospike.client.query.IndexType
 import com.aerospike.client._
 
-import io.aeroless.parser.{AsValue, Decoder, Encoder}
-
 package object aeroless {
 
   val DefaultClassLoader = getClass.getClassLoader
@@ -79,10 +77,11 @@ package object aeroless {
   object connection {
 
     import AerospikeIO._
+    import parser._
 
     def pure[A](x: A): AerospikeIO[A] = Pure(x)
 
-    def put[T](key: Key, obj: T)(implicit encoder: Encoder[T]): AerospikeIO[Key] = Put(key, encoder.encode(obj))
+    def put[T](key: Key, obj: T)(implicit encoder: Encoder[T]): AerospikeIO[Key] = Put(key, encoder.encode(obj).toBins)
 
     def append(key: Key, bins: Map[String, String]): AerospikeIO[Key] = {
       Append(key, bins.map { case (k, v) => new Bin(k, v) }.toSeq)

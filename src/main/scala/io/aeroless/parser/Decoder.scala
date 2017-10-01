@@ -22,10 +22,13 @@ object Decoder {
 
   implicit val decodeBoolean: Decoder[Boolean] = decodeLong.map(_ > 0)
 
-  implicit def decodeValues[L[_], A](implicit ev: Decoder[A], cbf: CanBuildFrom[Seq[A], A, L[A]]): Decoder[L[A]] = Decoder(readValues(ev.dsl)).map(cbf(_).result())
+  implicit def deriveDecodeTraversable[A, L[A] <: Traversable[A]](implicit ev: Decoder[A], cbf: CanBuildFrom[Nothing, A, L[A]]): Decoder[L[A]] = {
+    Decoder(readValues[A, L](ev.dsl))
+  }
 
   implicit def decodeMap[A](implicit ev: Decoder[A]): Decoder[Map[String, A]] = Decoder(readFields(ev.dsl))
 
+  implicit def decodeOption[A](implicit ev: Decoder[A]): Decoder[Option[A]] = Decoder(opt(ev.dsl))
 
   import shapeless._
   import shapeless.labelled._
