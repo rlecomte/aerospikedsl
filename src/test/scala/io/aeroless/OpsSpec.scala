@@ -116,20 +116,16 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
   "Query statement operation" should "work" in {
     val kd = keydomain("test", "setQueryOps")
     val io = for {
+      _ <- createIndex("test", "setQueryOps", "id", IndexType.STRING)
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
       _ <- put(kd("test_stmt_2"), TestValue("stmt2"))
-      _ <- put(kd("test_stmt_3"), TestValue("stmt3"))
-      _ <- put(kd("test_stmt_4"), TestValue("stmt4"))
-      record <- query[TestValue](statement("test", "setQueryOps").readBins("id"))
+      record <- query[TestValue](statement("test", "setQueryOps", "id" :: Nil).binEqualTo("id", "stmt1"))
     } yield record.map(_._2)
 
 
     whenReady(io.runFuture(manager)) { records =>
-      records should contain allElementsOf Seq(
-        TestValue("stmt1"),
-        TestValue("stmt2"),
-        TestValue("stmt4"),
-        TestValue("stmt4")
+      records should contain theSameElementsAs Seq(
+        TestValue("stmt1")
       )
     }
   }

@@ -3,50 +3,62 @@ package io.aeroless
 import com.aerospike.client.Value
 import com.aerospike.client.query.{Filter, Statement}
 
-case class QueryStatement(
+class QueryStatementBuilder(
   namespace: String,
   set: String,
-  bins: Option[Array[String]] = None,
-  filter: Option[Filter] = None,
-  fun: Option[(AggregateFunction, Seq[Value])] = None
+  bins: Seq[String]
 ) {
 
-  def onRange(bin: String, start: Long, end: Long): QueryStatement = {
-    copy(filter = Some(Filter.range(bin, start, end)))
+  def onRange(bin: String, start: Long, end: Long): QueryStatement = new QueryStatement {
+    override def toStatement: Statement = {
+      val s = baseStatement()
+      s.setFilter(Filter.range(bin, start, end))
+      s
+    }
   }
 
-  def binEqualTo(bin: String, value: Long): QueryStatement = {
-    copy(filter = Some(Filter.equal(bin, value)))
+  def binEqualTo(bin: String, value: Long): QueryStatement = new QueryStatement {
+    override def toStatement: Statement = {
+      val s = baseStatement()
+      s.setFilter(Filter.equal(bin, value))
+      s
+    }
   }
 
-  def binEqualTo(bin: String, value: Int): QueryStatement = {
-    copy(filter = Some(Filter.equal(bin, value)))
+  def binEqualTo(bin: String, value: Int): QueryStatement = new QueryStatement {
+    override def toStatement: Statement = {
+      val s = baseStatement()
+      s.setFilter(Filter.equal(bin, value))
+      s
+    }
   }
 
-  def binEqualTo(bin: String, value: String): QueryStatement = {
-    copy(filter = Some(Filter.equal(bin, value)))
+  def binEqualTo(bin: String, value: String): QueryStatement = new QueryStatement {
+    override def toStatement: Statement = {
+      val s = baseStatement()
+      s.setFilter(Filter.equal(bin, value))
+      s
+    }
   }
 
-  def readBins(bins: String*): QueryStatement = {
-    copy(bins = Some(bins.toArray))
-  }
-
-  def aggregate(fun: AggregateFunction)(values: Value*): QueryStatement = {
-    copy(fun = Some(
-      fun, values
-    ))
-  }
-
-  def toStatement: Statement = {
+  private def baseStatement(): Statement = {
     val s = new Statement()
     s.setNamespace(namespace)
     s.setSetName(set)
-    filter.map(s.setFilter)
-    bins.map(s.setBinNames(_: _*))
-    fun.map { case (af, values) =>
-      s.setAggregateFunction(af.classLoader, af.path, af.pack, af.funName, values: _*)
-    }
+    if (bins.nonEmpty) s.setBinNames(bins: _*)
     s
+  }
+}
+
+sealed trait QueryStatement { self =>
+  def toStatement: Statement
+
+  def aggregate(af: AggregateFunction)(values: Value*) = new QueryStatement {
+    override def toStatement: Statement = {
+      val s = self.toStatement
+      s.setAggregateFunction(af.classLoader, af.path, af.pack, af.funName, values: _*)
+      s
+    }
   }
 }
 

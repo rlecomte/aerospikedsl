@@ -130,13 +130,15 @@ object KleisliInterpreter {
         override def onRecord(key: Key, record: Record): Unit = {
           if (record.bins.containsKey("FAILURE")) {
             promise.failure(new AerospikeException(-99, record.bins.get("FAILURE").toString))
-          } else {
+          } else if (record.bins.containsKey("SUCCESS")) {
             val newRecord = new Record(
               record.getMap("SUCCESS").asInstanceOf[java.util.Map[String, AnyRef]],
               record.generation,
               record.expiration
             )
             results += (key -> AsValue.fromRecord(newRecord))
+          } else {
+            results += (key -> AsValue.fromRecord(record))
           }
         }
 

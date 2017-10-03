@@ -54,10 +54,11 @@ package object aeroless {
 
   object statement {
 
-    def apply(namespace: String, set: String): QueryStatement = {
-      QueryStatement(
+    def apply(namespace: String, set: String, bins: Seq[String] = Nil): QueryStatementBuilder = {
+      new QueryStatementBuilder(
         namespace = namespace,
-        set = set
+        set = set,
+        bins
       )
     }
   }
