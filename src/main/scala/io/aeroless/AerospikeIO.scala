@@ -64,11 +64,11 @@ object AerospikeIO {
 
   final case class Exists(key: Key) extends AerospikeIO[Boolean]
 
-  final case class Query(statement: QueryStatement) extends AerospikeIO[Vector[(Key, AsValue)]]
+  final case class Query(statement: QueryStatement[_]) extends AerospikeIO[Vector[(Key, AsValue)]]
 
   final case class ScanAll(namespace: String, set: String, binNames: Seq[String]) extends AerospikeIO[Vector[(Key, AsValue)]]
 
-  final case class GetAll[A](keys: Seq[Key]) extends AerospikeIO[Vector[(Key, AsValue)]]
+  final case class GetAll[A](keys: Seq[Key], binNames: Seq[String]) extends AerospikeIO[Vector[(Key, AsValue)]]
 
   //Index
   final case class CreateIndex(namespace: String, set: String, binName: String, idxType: IndexType, index: Option[String]) extends AerospikeIO[String]

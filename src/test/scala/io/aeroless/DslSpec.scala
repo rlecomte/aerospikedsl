@@ -2,9 +2,10 @@ package io.aeroless
 
 import org.scalatest.{FlatSpec, Matchers}
 
-import io.aeroless.parser.{AsValue, Decoder}
-
 class DslSpec extends FlatSpec with Matchers {
+
+  import cats.implicits._
+  import io.aeroless.parser._
 
   val aerospikeValue = AsValue.obj(
     "name" -> "Romain",
@@ -15,18 +16,16 @@ class DslSpec extends FlatSpec with Matchers {
     )
   )
 
+  val program = (
+    get("name")(readString),
+    get("age")(readLong),
+    get("details") {
+      get("city")(readString)
+    }
+  ).tupled
+
+
   "Value" should "be read" in {
-    import cats.implicits._
-    import io.aeroless.parser._
-
-    val program = (
-      get("name")(readString),
-      get("age")(readLong),
-      get("details") {
-        get("city")(readString)
-      }
-    ).tupled
-
     program.runEither(aerospikeValue) shouldBe Right(("Romain", 27, "Montpellier"))
   }
 
@@ -37,5 +36,10 @@ class DslSpec extends FlatSpec with Matchers {
   "Value" should "be decode" in {
     val tested = Decoder[Person].dsl.runEither(aerospikeValue)
     tested shouldBe Right(Person("Romain", 27, Some(Details("Montpellier", "Tabmo"))))
+  }
+
+  "Value" should "extract bins seq" in {
+    val tested = program.getBins
+    tested shouldBe Seq("name", "age", "details")
   }
 }

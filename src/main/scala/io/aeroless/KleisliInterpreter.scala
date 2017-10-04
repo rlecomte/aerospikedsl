@@ -167,7 +167,7 @@ object KleisliInterpreter {
       promise.future
     }
 
-    case GetAll(keys) => kleisli[Vector[(Key, AsValue)]] { m =>
+    case GetAll(keys, bins) => kleisli[Vector[(Key, AsValue)]] { m =>
       val promise = Promise[Vector[(Key, AsValue)]]()
 
       m.client.get(m.eventLoops.next(), new RecordSequenceListener {
@@ -180,7 +180,7 @@ object KleisliInterpreter {
 
         override def onSuccess(): Unit = promise.success(results.result())
 
-      }, m.batchPolicy.orNull, keys.toArray)
+      }, m.batchPolicy.orNull, keys.toArray, bins: _*)
 
       promise.future
     }
@@ -276,7 +276,7 @@ case class LogInterpreter[F[_]](interpreter: AerospikeIO ~> F) {
 
     case e@ScanAll(ns, set, bins) => time(s"#ScanAll $ns $set $bins", e)
 
-    case e@GetAll(keys) => time(s"#GetAll $keys", e)
+    case e@GetAll(keys, bins) => time(s"#GetAll $keys $bins", e)
 
     case e@Header(key) => time(s"#Header $key", e)
 

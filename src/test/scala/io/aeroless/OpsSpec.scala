@@ -42,7 +42,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
       _ <- prepend(key, Map(
         "id" -> "with_prefix_"
       ))
-      v <- get[TestValue](key, Seq("id"))
+      v <- get[TestValue](key)
     } yield v
 
     whenReady(io.runFuture(manager)) { r =>
@@ -55,7 +55,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     val io = for {
       _ <- put(key, LongValue(1L))
       _ <- add(key, Seq(("value" -> 2L)))
-      v <- get[LongValue](key, Seq("value"))
+      v <- get[LongValue](key)
     } yield v
 
     whenReady(io.runFuture(manager)) { r =>
@@ -68,7 +68,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
     val io = for {
       _ <- put(key, TestValue("value"))
       _ <- delete(key)
-      v <- get[TestValue](key, Seq("value"))
+      v <- get[TestValue](key)
     } yield v
 
     whenReady(io.runFuture(manager)) { r =>
@@ -119,7 +119,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
       _ <- createIndex("test", "setQueryOps", "id", IndexType.STRING)
       _ <- put(kd("test_stmt_1"), TestValue("stmt1"))
       _ <- put(kd("test_stmt_2"), TestValue("stmt2"))
-      record <- query[TestValue](statement("test", "setQueryOps", "id" :: Nil).binEqualTo("id", "stmt1"))
+      record <- query(statement[TestValue]("test", "setQueryOps").binEqualTo("id", "stmt1"))
     } yield record.map(_._2)
 
 
@@ -135,7 +135,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
       _ <- put(kd("test_scan_1"), TestValue("scan1"))
       _ <- put(kd("test_scan_2"), TestValue("scan2"))
       _ <- put(kd("test_scan_3"), TestValue("scan3"))
-      record <- scanAll[TestValue]("test", "set", "id" :: Nil)
+      record <- scanAll[TestValue]("test", "set")
     } yield record.map(_._2)
 
 
@@ -206,7 +206,7 @@ class OpsSpec extends FlatSpec with Matchers with BeforeAndAfterAll with GivenWh
       _ <- createIndex("test", "setAggregateOps", "age", IndexType.NUMERIC)
       _ <- put(key, Person("Romain", 28))
       _ <- put(key, Person("Bob", 33))
-      r <- query[Person](statement("test", "setAggregateOps").onRange("age", 10, 40).aggregate(aggregateFunction)(
+      r <- query(statement[Person]("test", "setAggregateOps").onRange("age", 10, 40).aggregate(aggregateFunction)(
         Value.get(30)
       ))
       _ <- removeUdf("persons.lua")

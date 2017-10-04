@@ -6,6 +6,7 @@ import com.aerospike.client.query.IndexType
 import com.aerospike.client._
 
 import cats.data.Kleisli
+import io.aeroless.parser.Decoder
 
 package object aeroless {
 
@@ -54,11 +55,11 @@ package object aeroless {
 
   object statement {
 
-    def apply(namespace: String, set: String, bins: Seq[String] = Nil): QueryStatementBuilder = {
+    def apply[T](namespace: String, set: String)(implicit decoder: Decoder[T]): QueryStatementBuilder[T] = {
       new QueryStatementBuilder(
         namespace = namespace,
         set = set,
-        bins
+        decoder
       )
     }
   }
@@ -88,8 +89,8 @@ package object aeroless {
       Add(key, numBin.map { case (k, v) => new Bin(k, v) })
     }
 
-    def get[T](key: Key, bins: Seq[String])(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
-      Get(key, bins).flatMap {
+    def get[T](key: Key)(implicit decoder: Decoder[T]): AerospikeIO[Option[T]] = {
+      Get(key, decoder.dsl.getBins).flatMap {
         case Some(r) =>
           decoder.dsl.runEither(r) match {
             case Right(v) => AerospikeIO.successful(Some(v))
@@ -111,17 +112,17 @@ package object aeroless {
       Exists(key)
     }
 
-    def query[T](statement: QueryStatement)(implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
-      Query(statement).flatMap(decodeVector[T])
+    def query[T](statement: QueryStatement[T]): AerospikeIO[Vector[(Key, T)]] = {
+      Query(statement).flatMap(v => decodeVector[T](v)(statement.decoder))
     }
 
-    def scanAll[T](namespace: String, set: String, binNames: Seq[String])
+    def scanAll[T](namespace: String, set: String)
       (implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
-      ScanAll(namespace, set, binNames).flatMap(decodeVector[T])
+      ScanAll(namespace, set, decoder.dsl.getBins).flatMap(decodeVector[T])
     }
 
     def getAll[T](keys: Seq[Key])(implicit decoder: Decoder[T]): AerospikeIO[Vector[(Key, T)]] = {
-      GetAll(keys).flatMap(decodeVector[T])
+      GetAll(keys, decoder.dsl.getBins).flatMap(decodeVector[T])
     }
 
     def createIndex(namespace: String, set: String, binName: String, idxType: IndexType, idx: Option[String] = None): AerospikeIO[String] = {

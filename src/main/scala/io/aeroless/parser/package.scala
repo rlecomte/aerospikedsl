@@ -7,6 +7,7 @@ import com.aerospike.client.command.ParticleType
 import com.aerospike.client.{Bin, Value}
 
 import cats.Applicative
+import cats.data.State
 import io.aeroless.parser.algebra.AsAlgebra
 
 package object parser {
@@ -31,6 +32,62 @@ package object parser {
       def readFields[A](next: Dsl[A]): F[Map[String, A]]
     }
 
+  }
+
+  object logs { self =>
+    type Stack[A] = String
+
+    private val interpreter = new AsAlgebra[Stack] {
+      override def get[A](field: String)(next: Dsl[A]) = s"$field / " + log(next)
+
+      override def at[A](idx: Int)(next: Dsl[A]) = s"[$idx]" + log(next)
+
+      override def opt[A](next: Dsl[A]) = "?" + log(next)
+
+      override def readString = "StringValue"
+
+      override def readLong = "LongValue"
+
+      override def readNull = "NullValue"
+
+      override def readValues[A, L[_]](next: Dsl[A], cbf: CanBuildFrom[Nothing, A, L[A]]) = " // " + log(next)
+
+      override def readFields[A](next: Dsl[A]) = " /// " + log(next)
+
+      override def pure[A](x: A) = ""
+
+      override def ap[A, B](ff: Stack[(A) => B])(fa: Stack[A]) = ff + "\n" + fa
+    }
+
+    def log[A](dsl: Dsl[A]): String = dsl.apply(interpreter)
+  }
+
+  object bins { self =>
+    type Stack[A] = List[String]
+
+    private val interpreter = new AsAlgebra[Stack] {
+      override def get[A](field: String)(next: Dsl[A]): Stack[A] = List(field)
+
+      override def at[A](idx: Int)(next: Dsl[A]): Stack[A] =  List("value")
+
+      override def opt[A](next: Dsl[A]): Stack[A] = getBins(next)
+
+      override def readString: Stack[String] = List("value")
+
+      override def readLong: Stack[Long] = List("value")
+
+      override def readNull: Stack[Unit] = Nil
+
+      override def readValues[A, L[_]](next: Dsl[A], cbf: CanBuildFrom[Nothing, A, L[A]]): Stack[L[A]] = List("value")
+
+      override def readFields[A](next: Dsl[A]): Stack[Map[String, A]] = Nil //read all
+
+      override def pure[A](x: A): Stack[A] = Nil
+
+      override def ap[A, B](ff: Stack[(A) => B])(fa: Stack[A]): Stack[B] = ff ++ fa
+    }
+
+    def getBins[A](prog: Dsl[A]): Stack[A] = prog(interpreter)
   }
 
   object yolo {
@@ -147,6 +204,10 @@ package object parser {
     def runEither(value: AsValue): Either[Throwable, A] = Try {
       yolo.runUnsafe(dsl)(value)
     }.toEither
+
+    def getBins: Seq[String] = bins.getBins(dsl)
+
+    def log: String = logs.log(dsl)
   }
 
   implicit class ValueOps(value: Value) {
